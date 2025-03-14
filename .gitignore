@@ -1,0 +1,44 @@
+# Entorno virtual de Python
+venv/
+env/
+*.pyc
+__pycache__/
+
+# Archivos de React
+node_modules/
+build/
+package-lock.json
+yarn.lock
+
+# Archivos de sistema operativo
+.DS_Store
+Thumbs.db
+
+# Archivos de registro y datos
+*.log
+*.sqlite3 # o el tipo de base de datos que uses
+data/ # Si tienes grandes archivos de datos
+
+# Archivos de configuración sensibles
+*.env
+config.ini # Si contiene datos sensibles
+
+# Archivos de IDE
+.idea/ # Si usas IntelliJ IDEA o PyCharm
+.vscode/ # Si usas VS Code
+
+# Archivos de compilación de Python (si usas Cython, por ejemplo)
+*.so
+*.pyd
+
+# Archivos de paquetes de Python (si usas distutils)
+dist/
+build/
+
+# Archivos temporales de React
+.cache/
+.parcel-cache/
+
+# Archivos de cobertura de pruebas (si usas coverage.py)
+.coverage
+htmlcov/
