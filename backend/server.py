@@ -1,4 +1,3 @@
-
 from flask import Flask, Response, jsonify
 from flask_cors import CORS
 import cv2
@@ -27,9 +26,9 @@ class VideoStream:
     def start(self):
         if not self.is_active:
             self.cap = cv2.VideoCapture(0)
-            # Configurar la cámara para mejor calidad
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            # Configurar la cámara para formato vertical (9:16)
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 720)  # Ancho más pequeño
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1280)  # Alto más grande
             self.cap.set(cv2.CAP_PROP_FPS, 30)
             self.is_active = True
         return self.is_active
@@ -45,8 +44,10 @@ class VideoStream:
         ret, frame = self.cap.read()
         if not ret:
             return None
-        # Aplicar flip horizontal aquí
+        
+        # Solo voltear horizontalmente
         frame = cv2.flip(frame, 1)
+        
         return frame
 
 video_stream = VideoStream()
@@ -69,14 +70,15 @@ def gen_frames():
                 # Procesar frame con pose detector
                 processed_frame = video_stream.pose_detector.process_frame(frame)
                 if processed_frame is not None:
-                    ret, buffer = cv2.imencode('.jpg', processed_frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
+                    # Comprimir menos para mejor calidad
+                    ret, buffer = cv2.imencode('.jpg', processed_frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
                     if ret:
                         yield (b'--frame\r\n'
                                b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
             else:
-                time.sleep(0.01)  # Reducido el tiempo de espera
+                time.sleep(0.01)
         else:
-            time.sleep(0.01)  # Reducido el tiempo de espera
+            time.sleep(0.01)
 
 @app.route('/video_feed')
 def video_feed():
