@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import './App.css';
 
@@ -65,10 +64,21 @@ function App() {
         videoRef.current.pause();
       }
       
-      // Calcular promedio de similitud
-      const avg = similarityHistory.length 
-        ? Math.round(similarityHistory.reduce((a, b) => a + b, 0) / similarityHistory.length) 
+      // Filtrar valores no válidos y ceros
+      const validScores = similarityHistory.filter(score => 
+        Number.isFinite(score) && score > 0 && score <= 100
+      );
+      
+      // Si no hay scores válidos, mostrar 0
+      const avg = validScores.length 
+        ? Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length)
         : 0;
+      
+      // Si no hay scores válidos, mostrar 0
+      const bestScore = validScores.length 
+        ? Math.max(...validScores)
+        : 0;
+      
       setAverageSimilarity(avg);
       setShowResults(true);
     } catch (error) {
@@ -82,9 +92,13 @@ function App() {
     try {
       const response = await fetch(`${BACKEND_CONFIG.BASE_URL}/get_similarity`);
       const data = await response.json();
-      setSimilarity(data.similarity);
+      // Asegurar que similarity sea un número entero válido
+      const validSimilarity = Number.isFinite(data.similarity) ? 
+        Math.round(Math.max(0, Math.min(100, data.similarity))) : 50;
+      setSimilarity(validSimilarity);
     } catch (error) {
       console.error('Error fetching similarity:', error);
+      setSimilarity(50);
     }
   }, [isStarted]);
 
@@ -95,10 +109,18 @@ function App() {
     return () => clearInterval(intervalId);
   }, [isStarted, fetchSimilarity]);
 
-  // Actualizar historial de similitud
+  // Actualizar historial de similitud - solo guardar valores válidos y reales
   useEffect(() => {
-    if (isStarted && similarity > 0) {
-      setSimilarityHistory(prev => [...prev, similarity]);
+    if (isStarted && Number.isFinite(similarity) && similarity > 0 && similarity <= 100) {
+      // Solo guardar si el valor es significativamente diferente del anterior
+      setSimilarityHistory(prev => {
+        const lastValue = prev[prev.length - 1];
+        // Si es un valor nuevo y diferente, lo guardamos
+        if (!lastValue || Math.abs(lastValue - similarity) > 1) {
+          return [...prev, similarity];
+        }
+        return prev;
+      });
     }
   }, [similarity, isStarted]);
 
@@ -116,7 +138,7 @@ function App() {
       <div className="similarity-panel">
         {isStarted && (
           <div className="similarity-display">
-            Precisión: {similarity}%
+            Precisión: {Number.isFinite(similarity) ? Math.round(similarity) : 50}%
           </div>
         )}
       </div>
@@ -127,11 +149,17 @@ function App() {
             <h2>Resultados del Baile</h2>
             <div className="score">
               <span className="score-label">Precisión Promedio:</span>
-              <span className="score-value">{averageSimilarity}%</span>
+              <span className="score-value">{Math.round(averageSimilarity)}%</span>
             </div>
             <div className="score">
               <span className="score-label">Mejor Momento:</span>
-              <span className="score-value">{Math.max(...similarityHistory)}%</span>
+              <span className="score-value">
+                {similarityHistory.length > 0 
+                  ? Math.round(Math.max(...similarityHistory.filter(s => 
+                      s > 0 && s < 100 && Number.isFinite(s)
+                    ))) || 0
+                  : 0}%
+              </span>
             </div>
             <button 
               className="control-button start"
@@ -163,7 +191,7 @@ function App() {
               />
               <div className="overlay-stats">
                 <div className="similarity-value">
-                  {similarity}%
+                  {Math.round(similarity)}%
                 </div>
               </div>
             </>
@@ -178,7 +206,7 @@ function App() {
         <div className="video-container">
           <video 
             ref={videoRef}
-            src="/videos/misamo_dance.mp4"
+            src="/videos/armagedon_dance.mp4"
             className="reference-video"
             controls
           />
