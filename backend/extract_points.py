@@ -9,7 +9,7 @@ pose = mp_pose.Pose()
 mp_draw = mp.solutions.drawing_utils
 
 # Extraer keypoints de la coreografía de referencia
-video_path = "./data/misamo_dance.mp4"
+video_path = "./data/armagedon.mp4"
 cap = cv2.VideoCapture(video_path)
 
 reference_keypoints = []
@@ -42,7 +42,7 @@ while cap.isOpened():
 cap.release()
 
 # Guardar los keypoints normalizados en un archivo JSON
-with open("reference_keypoints_misamo.json", "w") as f:
+with open("reference_keypoints_armagedon.json", "w") as f:
     json.dump(reference_keypoints, f, indent=4)
 
 print("Reference keypoints saved!")

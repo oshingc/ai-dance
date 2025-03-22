@@ -25,18 +25,14 @@ class PoseDetector:
             'LEFT_ANKLE', 'RIGHT_ANKLE'
         ]
 
-        # Cargar poses de referencia desde el archivo JSON
-        self.reference_keypoints_armagedon = self.load_reference_poses()
-
-    def load_reference_poses(self):
+        # Cargar poses de referencia
         try:
-            # Cargar el archivo JSON con las poses de Armagedón
-            with open('reference_poses/armagedon_poses.json', 'r') as file:
-                poses_data = json.load(file)
-                return poses_data['poses']  # Asumiendo que el JSON tiene una estructura con 'poses'
+            with open('backend/reference_keypoints_armagedon.json', 'r') as file:
+                self.reference_keypoints = json.load(file)
+                print(f"Cargados {len(self.reference_keypoints)} frames de referencia")
         except Exception as e:
-            print(f"Error al cargar poses de referencia: {e}")
-            return None
+            print(f"Error cargando keypoints: {e}")
+            self.reference_keypoints = []
 
     def calculate_pose_similarity(self, current_pose, reference_pose):
         total_similarity = 0
@@ -83,24 +79,33 @@ class PoseDetector:
         return min(100, final_score * 1.2)
 
     def calculate_similarity(self, landmarks):
-        if not landmarks or self.reference_keypoints_armagedon is None:
+        if not landmarks:
             return self.previous_score
         
-        # Uso de las poses de referencia
-        reference_poses = self.reference_keypoints_armagedon
+        # Solo muñecas
+        left_wrist = landmarks.landmark[self.mp_pose.PoseLandmark.LEFT_WRIST]
+        right_wrist = landmarks.landmark[self.mp_pose.PoseLandmark.RIGHT_WRIST]
         
-        # Calcular similitud con cada pose de referencia
-        similarities = [self.calculate_pose_similarity(landmarks, ref_pose) 
-                       for ref_pose in reference_poses]
+        target_score = 0
         
-        # Tomar la mejor similitud
-        target_score = max(similarities)
+        # Calculamos el score objetivo
+        if left_wrist.visibility > 0.5:
+            if left_wrist.y < 0.5:
+                target_score += 30
+        
+        if right_wrist.visibility > 0.5:
+            if right_wrist.y < 0.5:
+                target_score += 30
+        
+        # Bonus por ambos brazos
+        if left_wrist.y < 0.5 and right_wrist.y < 0.5:
+            target_score += 10
         
         # Suavizar la transición
         if target_score > self.previous_score:
-            new_score = min(target_score, self.previous_score + 4)
+            new_score = min(target_score, self.previous_score + 2)
         else:
-            new_score = max(target_score, self.previous_score - 2)
+            new_score = max(target_score, self.previous_score - 1)
         
         self.previous_score = new_score
         return min(100, new_score)
@@ -109,16 +114,25 @@ class PoseDetector:
         if frame is None:
             return None
         
+
+        # Procesar el frame recortado
         frame = cv2.flip(frame, 1)
+        
+        # Redimensionar al formato vertical de TikTok (9:16)
+        height, width = frame.shape[:2]
+        target_width = int((height * 9) / 16)  # Mantener proporción 9:16
+        
+        # Calcular los puntos de recorte para centrar
+        start_x = (width - target_width) // 2
+        end_x = start_x + target_width
+        
+        # Recortar al formato vertical
+        frame = frame[:, start_x:end_x]
+        
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = self.pose.process(frame_rgb)
 
         if results.pose_landmarks:
-            # Si no tenemos poses de referencia, usar la primera pose detectada
-            if not self.reference_keypoints_armagedon:
-                self.reference_keypoints_armagedon = [results.pose_landmarks]
-                print("Primera pose guardada como referencia")
-
             self.mp_drawing.draw_landmarks(
                 frame,
                 results.pose_landmarks,
@@ -128,37 +142,25 @@ class PoseDetector:
             )
             
             score = self.calculate_similarity(results.pose_landmarks)
-            self.current_similarity = int(score)
-            
-            cv2.putText(frame, 
-                       f"{self.current_similarity}%",
-                       (50, 70),
-                       cv2.FONT_HERSHEY_SIMPLEX, 
-                       2,
-                       (0, 255, 0), 
-                       3)
+            self.current_similarity = score
         
         return frame
 
     def get_similarity(self):
-        print(f"Retornando similitud actual: {self.current_similarity}")
         return self.current_similarity
 
     def get_recent_similarity_data(self):
-        print(f"Retornando datos recientes. Similitud: {self.current_similarity}")
         return [{
             "timestamp": datetime.now().isoformat(),
             "similarity": self.current_similarity
         }]
 
     def start(self):
-        print("Iniciando detector - reseteando scores")
         self.is_active = True
         self.current_similarity = 0
         self.previous_score = 0
 
     def stop(self):
-        print("Deteniendo detector")
         self.is_active = False
         self.current_similarity = 0
         self.previous_score = 0

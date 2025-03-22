@@ -11,94 +11,51 @@ from pose_detector import PoseDetector
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Agregar el directorio que contiene pose_detector.py al path
-#sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'mediapipe'))
-
 app = Flask(__name__)
 CORS(app)
 
-class VideoStream:
-    def __init__(self):
-        self.cap = None
-        self.is_active = False
-        self.pose_detector = PoseDetector()
+# Inicializar la cámara y el detector
+camera = cv2.VideoCapture(0)
+pose_detector = PoseDetector()
 
-    def start(self):
-        if not self.is_active:
-            self.cap = cv2.VideoCapture(0)
-            # Configurar la cámara para formato vertical (9:16)
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 720)  # Ancho más pequeño
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1280)  # Alto más grande
-            self.cap.set(cv2.CAP_PROP_FPS, 30)
-            self.is_active = True
-        return self.is_active
-
-    def stop(self):
-        if self.is_active:
-            self.cap.release()
-            self.is_active = False
-
-    def get_frame(self):
-        if not self.is_active:
-            return None
-        ret, frame = self.cap.read()
-        if not ret:
-            return None
-        
-        # Solo voltear horizontalmente
-        frame = cv2.flip(frame, 1)
-        
-        return frame
-
-video_stream = VideoStream()
-
-@app.route('/start_camera')
-def start_camera():
-    success = video_stream.start()
-    return jsonify({"status": "success" if success else "error"})
-
-@app.route('/stop_camera')
-def stop_camera():
-    video_stream.stop()
-    return jsonify({"status": "success"})
-
-def gen_frames():
+def generate_frames():
     while True:
-        if video_stream.is_active:
-            frame = video_stream.get_frame()
-            if frame is not None:
-                # Procesar frame con pose detector
-                processed_frame = video_stream.pose_detector.process_frame(frame)
-                if processed_frame is not None:
-                    # Comprimir menos para mejor calidad
-                    ret, buffer = cv2.imencode('.jpg', processed_frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
-                    if ret:
-                        yield (b'--frame\r\n'
-                               b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
-            else:
-                time.sleep(0.01)
+        success, frame = camera.read()
+        if not success:
+            break
         else:
-            time.sleep(0.01)
+            # Solo voltear horizontalmente
+            frame = cv2.flip(frame, 1)
+            frame = pose_detector.process_frame(frame)
+            
+            if frame is not None:
+                ret, buffer = cv2.imencode('.jpg', frame)
+                if ret:
+                    frame = buffer.tobytes()
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
 @app.route('/video_feed')
 def video_feed():
-    return Response(gen_frames(),
-                   mimetype='multipart/x-mixed-replace; boundary=frame')
+    return Response(generate_frames(),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
 
-@app.route('/get_similarity_data')
-def get_similarity_data():
-    return jsonify(video_stream.pose_detector.get_recent_similarity_data())
+@app.route('/start_camera')
+def start_camera():
+    pose_detector.start()
+    return jsonify({"status": "success"})
+
+@app.route('/stop_camera')
+def stop_camera():
+    pose_detector.stop()
+    return jsonify({"status": "success"})
 
 @app.route('/get_similarity')
 def get_similarity():
-    if video_stream.is_active:
-        similarity = video_stream.pose_detector.get_similarity()
-        return jsonify({"similarity": similarity})
-    return jsonify({"similarity": 0})
+    return jsonify({
+        "similarity": pose_detector.get_similarity()
+    })
 
 if __name__ == '__main__':
-    try:
-        app.run(host='0.0.0.0', port=5000, threaded=True)
-    finally:
-        video_stream.stop()
+    app.run(debug=True, port=5000)
 
