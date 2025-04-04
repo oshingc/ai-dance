@@ -53,3 +53,8 @@ Si encuentras una pantalla negra o la cámara no funciona:
 2. Reinicia el servidor backend
 3. Limpia el caché del navegador
 4. Asegúrate de que no haya otras aplicaciones usando la cámara
+
+
+https://github.com/user-attachments/assets/ed72fcb3-1ca9-4d5e-ad04-5bfa1c5314d3
+
+
