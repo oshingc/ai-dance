@@ -55,6 +55,6 @@ Si encuentras una pantalla negra o la cámara no funciona:
 4. Asegúrate de que no haya otras aplicaciones usando la cámara
 
 
-https://github.com/user-attachments/assets/ed72fcb3-1ca9-4d5e-ad04-5bfa1c5314d3
+https://github.com/user-attachments/assets/e67ba49f-c12f-4406-a366-863167055955
 
 
